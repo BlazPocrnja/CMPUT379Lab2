@@ -1,0 +1,84 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <setjmp.h>
+
+FILE *f;
+jmp_buf env;
+int file_number = 0;
+
+void write_to_file(){
+	while(1){
+		printf("Writing to file %d...\n", file_number);
+		fprintf(f, "Some text in file %d\n", file_number);
+		sleep(1);
+	}
+}
+
+void goto_next_file(){
+	//Increments file_number, opens a new file to write to.
+	file_number  += 1;
+
+	char filename[32];
+  snprintf(filename, sizeof(char) * 32, "%i.txt", file_number);
+
+	f = fopen(filename, "w");
+		//Check if opening a new file was successful.
+	if (f == NULL)
+	{
+	    printf("Error opening file!\n");
+	    exit(1);
+	}
+}
+
+void sigtstp_handler(int signo) {
+	printf("SIGTSTP received. Going to new file...\n");
+	fclose(f);
+	goto_next_file();
+	return;
+}
+
+void sigint_handler(int signo){
+	printf("SIGINT received. Printing file names...\n");
+
+	fclose(f);
+
+	//Print out file names and exit.
+	printf("\n");
+	int i = 0;
+	for(; i < file_number; i++){
+		printf("%d.txt\n", i+1);
+	}
+
+	exit(0);
+}
+
+int main(int argc, char ** argv) {
+
+	//Setting up signal handler for SIGTSTP
+	/*
+	struct sigaction sigtstp_act;
+	sigtstp_act.sa_handler = sigtstp_handler;
+	sigemptyset(&sigtstp_act.sa_mask);
+
+	sigaction(SIGTSTP, &sigtstp_act, NULL);
+	*/
+	signal(SIGTSTP, sigtstp_handler);
+
+
+	//Setting up signal handler for SIGINT
+	/*
+	struct sigaction sigint_act;
+	sigint_act.sa_handler = sigint_handler;
+	sigemptyset(&sigint_act.sa_mask);
+
+	sigaction(SIGINT, &sigint_act, NULL);
+	*/
+	signal(SIGINT, sigint_handler);
+
+	goto_next_file();
+	write_to_file();
+
+	return 0;
+}
